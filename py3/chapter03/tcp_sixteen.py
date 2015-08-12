@@ -3,44 +3,54 @@
 # https://github.com/brandon-rhodes/fopnp/blob/m/py3/chapter03/tcp_sixteen.py
 # Simple TCP client and server that send and receive 16 octets
 
-import socket, sys
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-HOST = sys.argv.pop() if len(sys.argv) == 3 else '127.0.0.1'
-PORT = 1060
+import argparse, socket
 
 def recvall(sock, length):
     data = b''
     while len(data) < length:
         more = sock.recv(length - len(data))
         if not more:
-            raise EOFError('socket closed %d bytes into a %d-byte message'
-                           % (len(data), length))
+            raise EOFError('was expecting %d bytes but only received'
+                           ' %d bytes before the socket closed'
+                           % (length, len(data)))
         data += more
     return data
 
-if sys.argv[1:] == ['server']:
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    s.bind((HOST, PORT))
-    s.listen(1)
+def server(interface, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((interface, port))
+    sock.listen(1)
+    print('Listening at', sock.getsockname())
     while True:
-        print('Listening at', s.getsockname())
-        sc, sockname = s.accept()
+        print('Waiting to accept a new connection')
+        sc, sockname = sock.accept()
         print('We have accepted a connection from', sockname)
-        print('Socket connects', sc.getsockname(), 'and', sc.getpeername())
+        print('  Socket name:', sc.getsockname())
+        print('  Socket peer:', sc.getpeername())
         message = recvall(sc, 16)
-        print('The incoming sixteen-octet message says', repr(message))
+        print('  Incoming sixteen-octet message:', repr(message))
         sc.sendall(b'Farewell, client')
         sc.close()
-        print('Reply sent, socket closed')
+        print('  Reply sent, socket closed')
 
-elif sys.argv[1:] == ['client']:
-    s.connect((HOST, PORT))
-    print('Client has been assigned socket name', s.getsockname())
-    s.sendall(b'Hi there, server')
-    reply = recvall(s, 16)
+def client(host, port):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.connect((host, port))
+    print('Client has been assigned socket name', sock.getsockname())
+    sock.sendall(b'Hi there, server')
+    reply = recvall(sock, 16)
     print('The server said', repr(reply))
-    s.close()
+    sock.close()
 
-else:
-    print('usage: tcp_local.py server|client [host]', file=sys.stderr)
+if __name__ == '__main__':
+    choices = {'client': client, 'server': server}
+    parser = argparse.ArgumentParser(description='Send and receive over TCP')
+    parser.add_argument('role', choices=choices, help='which role to play')
+    parser.add_argument('host', help='interface the server listens at;'
+                        ' host the client sends to')
+    parser.add_argument('-p', metavar='PORT', type=int, default=1060,
+                        help='TCP port (default 1060)')
+    args = parser.parse_args()
+    function = choices[args.role]
+    function(args.host, args.p)

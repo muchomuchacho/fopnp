@@ -4,24 +4,31 @@
 
 import sys, smtplib
 
-if len(sys.argv) < 4:
-    print("usage: %s server fromaddr toaddr [toaddr...]" % sys.argv[0])
-    sys.exit(2)
-
-server, fromaddr, toaddrs = sys.argv[1], sys.argv[2], sys.argv[3:]
-
-message = """To: %s
-From: %s
+message_template = """To: {}
+From: {}
 Subject: Test Message from simple.py
 
 Hello,
 
 This is a test message sent to you from the simple.py program
 in Foundations of Python Network Programming.
-""" % (', '.join(toaddrs), fromaddr)
+"""
 
-s = smtplib.SMTP(server)
-s.sendmail(fromaddr, toaddrs, message)
-s.quit()
+def main():
+    if len(sys.argv) < 4:
+        name = sys.argv[0]
+        print("usage: {} server fromaddr toaddr [toaddr...]".format(name))
+        sys.exit(2)
 
-print("Message successfully sent to %d recipient(s)" % len(toaddrs))
+    server, fromaddr, toaddrs = sys.argv[1], sys.argv[2], sys.argv[3:]
+    message = message_template.format(', '.join(toaddrs), fromaddr)
+
+    connection = smtplib.SMTP(server)
+    connection.sendmail(fromaddr, toaddrs, message)
+    connection.quit()
+
+    s = '' if len(toaddrs) == 1 else 's'
+    print("Message sent to {} recipient{}".format(len(toaddrs), s))
+
+if __name__ == '__main__':
+    main()
